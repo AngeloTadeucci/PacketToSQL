@@ -9,3 +9,8 @@ How to use:
 2. You can open the app anywhere or in the folder that contains your sniffs.
 3. Let the app do its thing.
 4. Check the output on '/SQL Files'.
+
+
+# For any problems:
+
+Create an issue [here](https://github.com/AngeloTadeucci/PacketToSQL/issues/new).
