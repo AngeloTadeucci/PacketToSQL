@@ -1,4 +1,4 @@
-﻿using Maple2.PacketLib.Tools;
+﻿using PacketToSQL.Helpers;
 using PacketToSQL.MapleShark2_Files;
 using PacketToSQL.Types;
 
@@ -41,32 +41,55 @@ foreach (string file in files)
 {
     (MsbMetadata metadata, IEnumerable<MaplePacket> packets) = FileLoader.ReadMsbFile(file);
 
-    int opCode = metadata.Build == 12 ? 82 : 81;
+    bool isGms2 = metadata.Build == 12;
+    int opCode = isGms2 ? 82 : 81;
+    Dictionary<int, (Shop, List<ShopItem>)> shops = new();
 
-    Shop shop = null;
-    List<ShopItem> shopItems = new();
+    int lastShopId = 0;
     foreach (MaplePacket packet in packets.Where(x => x.Opcode == opCode && !x.Outbound))
     {
         byte mode = packet.ReadByte();
         switch (mode)
         {
             case 0:
-                shop = ReadShop(packet);
+                Shop shop = ReadShop(packet);
+                lastShopId = shop.Id;
+                shops[lastShopId] = (shop, new());
                 break;
             case 1:
-                ShopItem item = ReadShopItem(packet);
-                shopItems.Add(item);
+                if (lastShopId == -1)
+                {
+                    Console.WriteLine("Error: Tried to read shop item without reading shop first");
+                    continue;
+                }
+
+                if (isGms2)
+                {
+                    ShopItem item = ReadShopItemGms2(packet);
+                    shops[lastShopId].Item2.Add(item);
+                    break;
+                }
+
+                List<ShopItem> items = ReadShopItemKms2(packet);
+                shops[lastShopId].Item2.AddRange(items);
+
+                break;
+            case 6:
+                lastShopId = -1;
                 break;
         }
     }
 
-    if (shop is null || shopItems.Count == 0)
+    if (shops.Count == 0)
     {
         continue;
     }
 
-    CreateShopSqlFile(shop);
-    CreateShopItemsSqlFile(shopItems, shop.Id);
+    foreach ((int _, (Shop shop, List<ShopItem> shopItems)) in shops)
+    {
+        CreateShopSqlFile(shop);
+        CreateShopItemsSqlFile(shopItems, shop.Id);
+    }
 
     Console.Write(".");
 }
@@ -77,7 +100,7 @@ Console.ReadKey();
 
 Shop ReadShop(MaplePacket packet)
 {
-    int npcId = packet.ReadInt();
+    packet.ReadInt();
     int id = packet.ReadInt();
     long nextRestock = packet.ReadLong();
     packet.ReadInt();
@@ -107,63 +130,27 @@ Shop ReadShop(MaplePacket packet)
     };
 }
 
-ShopItem ReadShopItem(MaplePacket packet)
+ShopItem ReadShopItemGms2(MaplePacket packet)
 {
-    packet.ReadByte();
-    int uid = packet.ReadInt();
-    int itemId = packet.ReadInt();
-    byte tokenType = packet.ReadByte();
-    int requiredItemId = packet.ReadInt();
-    packet.ReadInt();
-    int price = packet.ReadInt();
-    int salePrice = packet.ReadInt();
-    byte itemRank = packet.ReadByte();
-    packet.ReadInt();
-    int stockCount = packet.ReadInt();
-    int stockPurchased = packet.ReadInt();
-    int guildTrophy = packet.ReadInt();
-    string category = packet.ReadString();
-    int requiredAchievementId = packet.ReadInt();
-    int requiredAchievementGrade = packet.ReadInt();
-    byte requiredChampionshipGrade = packet.ReadByte();
-    short requiredChampionshipJoinCount = packet.ReadShort();
-    byte requiredGuildMerchantType = packet.ReadByte();
-    short requiredGuildMerchantLevel = packet.ReadShort();
-    packet.ReadBool();
-    short quantity = packet.ReadShort();
-    packet.ReadByte();
-    byte flag = packet.ReadByte();
-    string templateName = packet.ReadString();
-    short requiredQuestAlliance = packet.ReadShort();
-    int requiredFameGrade = packet.ReadInt();
-    bool autoPreviewEquip = packet.ReadBool();
-    packet.ReadByte();
+    packet.ReadByte(); // count
+    return ReadItemShop(packet);
+}
 
-    return new()
+List<ShopItem> ReadShopItemKms2(MaplePacket packet)
+{
+    List<ShopItem> shopItems = new();
+    byte count = packet.ReadByte();
+    for (int i = 0; i < count; i++)
     {
-        AutoPreviewEquip = autoPreviewEquip,
-        Category = category,
-        Flag = (ShopItemFlag) flag,
-        GuildTrophy = guildTrophy,
-        ItemId = itemId,
-        ItemRank = itemRank,
-        Price = price,
-        RequiredAchievementGrade = requiredAchievementGrade,
-        RequiredAchievementId = requiredAchievementId,
-        RequiredChampionshipGrade = requiredChampionshipGrade,
-        RequiredChampionshipJoinCount = requiredChampionshipJoinCount,
-        RequiredFameGrade = requiredFameGrade,
-        RequiredGuildMerchantLevel = requiredGuildMerchantLevel,
-        RequiredGuildMerchantType = requiredGuildMerchantType,
-        RequiredItemId = requiredItemId,
-        RequiredQuestAlliance = requiredQuestAlliance,
-        SalePrice = salePrice,
-        StockCount = stockCount,
-        StockPurchased = stockPurchased,
-        TemplateName = templateName,
-        TokenType = (ShopCurrencyType) tokenType,
-        Quantity = quantity
-    };
+        ShopItem item = ReadItemShop(packet);
+        packet.ReadByte();
+        packet.ReadKmsItem(item.ItemId);
+
+        shopItems.Add(item);
+    }
+
+
+    return shopItems;
 }
 
 async void CreateShopSqlFile(Shop shop)
@@ -241,4 +228,61 @@ VALUES"
     {
         await file.WriteLineAsync(line);
     }
+}
+
+ShopItem ReadItemShop(MaplePacket maplePacket)
+{
+    maplePacket.ReadInt();
+    int itemId = maplePacket.ReadInt();
+    byte tokenType = maplePacket.ReadByte();
+    int requiredItemId = maplePacket.ReadInt();
+    maplePacket.ReadInt();
+    int price = maplePacket.ReadInt();
+    int salePrice = maplePacket.ReadInt();
+    byte itemRank = maplePacket.ReadByte();
+    maplePacket.ReadInt();
+    int stockCount = maplePacket.ReadInt();
+    int stockPurchased = maplePacket.ReadInt();
+    int guildTrophy = maplePacket.ReadInt();
+    string category = maplePacket.ReadString();
+    int requiredAchievementId = maplePacket.ReadInt();
+    int requiredAchievementGrade = maplePacket.ReadInt();
+    byte requiredChampionshipGrade = maplePacket.ReadByte();
+    short requiredChampionshipJoinCount = maplePacket.ReadShort();
+    byte requiredGuildMerchantType = maplePacket.ReadByte();
+    short requiredGuildMerchantLevel = maplePacket.ReadShort();
+    maplePacket.ReadBool();
+    short quantity = maplePacket.ReadShort();
+    maplePacket.ReadByte();
+    byte flag = maplePacket.ReadByte();
+    string templateName = maplePacket.ReadString();
+    short requiredQuestAlliance = maplePacket.ReadShort();
+    int requiredFameGrade = maplePacket.ReadInt();
+    bool autoPreviewEquip = maplePacket.ReadBool();
+    maplePacket.ReadByte();
+    return new()
+    {
+        AutoPreviewEquip = autoPreviewEquip,
+        Category = category,
+        Flag = (ShopItemFlag) flag,
+        GuildTrophy = guildTrophy,
+        ItemId = itemId,
+        ItemRank = itemRank,
+        Price = price,
+        RequiredAchievementGrade = requiredAchievementGrade,
+        RequiredAchievementId = requiredAchievementId,
+        RequiredChampionshipGrade = requiredChampionshipGrade,
+        RequiredChampionshipJoinCount = requiredChampionshipJoinCount,
+        RequiredFameGrade = requiredFameGrade,
+        RequiredGuildMerchantLevel = requiredGuildMerchantLevel,
+        RequiredGuildMerchantType = requiredGuildMerchantType,
+        RequiredItemId = requiredItemId,
+        RequiredQuestAlliance = requiredQuestAlliance,
+        SalePrice = salePrice,
+        StockCount = stockCount,
+        StockPurchased = stockPurchased,
+        TemplateName = templateName,
+        TokenType = (ShopCurrencyType) tokenType,
+        Quantity = quantity
+    };
 }

@@ -14,7 +14,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Maple2.PacketLib" Version="1.0.2"/>
+        <PackageReference Include="Maple2.PacketLib" Version="1.0.2" />
     </ItemGroup>
 
 </Project>

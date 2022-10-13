@@ -77,6 +77,8 @@ public class MaplePacket
     public long ReadLong() => Reader.ReadLong();
     public bool ReadBool() => Reader.ReadBool();
     public string ReadString() => Reader.ReadString();
+    public float ReadFloat() => Reader.ReadFloat();
+    public string ReadUnicodeString() => Reader.ReadUnicodeString();
 
     public byte[] Read(int count) => Reader.ReadBytes(count);
     public void Skip(int count) => Reader.Skip(count);
