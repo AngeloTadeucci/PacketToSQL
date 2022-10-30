@@ -2,15 +2,29 @@
 
 public class Shop
 {
-    public int Id { get; set; }
-    public int Category { get; set; }
-    public string Name { get; set; }
-    public ShopType ShopType { get; set; }
-    public bool RestrictSales { get; set; }
-    public bool CanRestock { get; set; }
-    public long NextRestock { get; set; }
-    public bool AllowBuyback { get; set; }
-    public List<ShopItem> Items { get; set; }
+    public  int Id;
+    public int Category;
+    public string Name;
+    public ShopType ShopType;
+    public bool HideUnuseable;
+    public bool HideStats;
+    public bool DisableBuyback;
+    public bool OpenWallet;
+    public bool DisplayNew;
+    public bool RandomizeOrder;
+    public bool CanRestock;
+    public long NextRestock;
+    public int RestockMinInterval;
+    public byte RestockInterval;
+    public byte RestockCurrencyType;
+    public byte ExcessRestockCurrencyType;
+    public int RestockCost;
+    public bool EnableRestockCostMultiplier;
+    public int TotalRestockCount;
+    public bool DisableInstantRestock;
+    public bool PersistantInventory;
+    public int PullCount;
+    public List<ShopItem> Items;
 
     public Shop() { }
 
@@ -20,10 +34,10 @@ public class Shop
         Category = category;
         Name = name;
         ShopType = (ShopType) shop_type;
-        RestrictSales = restrict_sales;
+        DisableBuyback = restrict_sales;
         CanRestock = can_restock;
         NextRestock = next_restock;
-        AllowBuyback = allow_buyback;
+        HideUnuseable = allow_buyback;
     }
 }
 
@@ -31,11 +45,11 @@ public class ShopItem
 {
     public int Uid;
     public int ItemId;
-    public ShopCurrencyType TokenType;
+    public ShopCurrencyType CurrencyType;
     public int RequiredItemId;
     public int Price;
     public int SalePrice;
-    public byte ItemRank;
+    public byte Rarity;
     public int StockCount;
     public int StockPurchased;
     public int GuildTrophy;
@@ -47,8 +61,8 @@ public class ShopItem
     public byte RequiredGuildMerchantType;
     public short RequiredGuildMerchantLevel;
     public short Quantity;
-    public ShopItemFlag Flag;
-    public string TemplateName;
+    public ShopItemLabel Label;
+    public string CurrencyId;
     public short RequiredQuestAlliance;
     public int RequiredFameGrade;
     public bool AutoPreviewEquip;
@@ -60,10 +74,10 @@ public class ShopItem
         Uid = data.uid;
         AutoPreviewEquip = data.auto_preview_equip;
         Category = data.category;
-        Flag = (ShopItemFlag) data.flag;
+        Label = (ShopItemLabel) data.label;
         GuildTrophy = data.guild_trophy;
         ItemId = data.item_id;
-        ItemRank = data.item_rank;
+        Rarity = data.rarity;
         Price = data.price;
         RequiredAchievementGrade = data.required_achievement_grade;
         RequiredAchievementId = data.required_achievement_id;
@@ -77,8 +91,8 @@ public class ShopItem
         SalePrice = data.sale_price;
         StockCount = data.stock_count;
         StockPurchased = data.stock_purchased;
-        TemplateName = data.template_name;
-        TokenType = (ShopCurrencyType) data.token_type;
+        CurrencyId = data.template_name;
+        CurrencyType = (ShopCurrencyType) data.currency_type;
         Quantity = data.quantity;
     }
 }
@@ -110,7 +124,7 @@ public enum ShopType : byte
     Capsule = 4
 }
 
-public enum ShopItemFlag : byte
+public enum ShopItemLabel : byte
 {
     None = 0,
     New = 1,
