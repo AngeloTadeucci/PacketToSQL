@@ -104,29 +104,81 @@ Shop ReadShop(MaplePacket packet)
     int id = packet.ReadInt();
     long nextRestock = packet.ReadLong();
     packet.ReadInt();
-    packet.ReadShort();
+    int itemCount = packet.ReadShort();
     int category = packet.ReadInt();
-    packet.ReadBool();
-    bool restrictSales = packet.ReadBool();
+    bool openWallet = packet.ReadBool();
+    bool disableBuyBack = packet.ReadBool();
     bool canRestock = packet.ReadBool();
-    packet.ReadBool();
+    bool randomizeOrder = packet.ReadBool();
     ShopType shopType = (ShopType) packet.ReadByte();
-    bool allowBuyback = packet.ReadBool();
+    bool hideUnuseable = packet.ReadBool();
+    bool hideStats = packet.ReadBool();
     packet.ReadBool();
-    packet.ReadBool();
-    packet.ReadBool();
+    bool displayNew = packet.ReadBool();
     string name = packet.ReadString();
+    byte restockCurrencyType = 0;
+    byte excessRestockCurrencyType = 0;
+    int restockCost = 0;
+    bool enableRestockCostMultiplier = false;
+    int totalRestockCount = 0;
+    byte restockInterval = 0;
+    bool disableInstantRestock = false;
+    bool persistantInventory = false;
+    int pullCount = 0;
+    int restockMinInterval = 0;
+
+    if (canRestock)
+    {
+        restockCurrencyType = packet.ReadByte();
+        excessRestockCurrencyType = packet.ReadByte();
+        restockCost = packet.ReadInt();
+        enableRestockCostMultiplier = packet.ReadBool();
+        totalRestockCount = packet.ReadInt();
+        restockInterval = packet.ReadByte();
+        disableInstantRestock = packet.ReadBool();
+        persistantInventory = packet.ReadBool();
+        pullCount = itemCount;
+        restockMinInterval = restockInterval switch
+        {
+            0 => // minutes
+                1,
+            1 => // days
+                1440,
+            2 => // weeks
+                10080,
+            3 => 43200,
+            _ => restockMinInterval
+        };
+    }
+    else
+    {
+        nextRestock = 0;
+    }
 
     return new()
     {
-        AllowBuyback = allowBuyback,
+        HideUnuseable = hideUnuseable,
         CanRestock = canRestock,
         Category = category,
         Id = id,
         Name = name,
         NextRestock = nextRestock,
-        RestrictSales = restrictSales,
-        ShopType = shopType
+        DisableBuyback = disableBuyBack,
+        ShopType = shopType,
+        OpenWallet = openWallet,
+        RandomizeOrder = randomizeOrder,
+        HideStats = hideStats,
+        DisplayNew = displayNew,
+        RestockCurrencyType = restockCurrencyType,
+        ExcessRestockCurrencyType = excessRestockCurrencyType,
+        RestockCost = restockCost,
+        EnableRestockCostMultiplier = enableRestockCostMultiplier,
+        TotalRestockCount = totalRestockCount,
+        RestockInterval = restockInterval,
+        DisableInstantRestock = disableInstantRestock,
+        PersistantInventory = persistantInventory,
+        PullCount = pullCount,
+        RestockMinInterval = restockMinInterval
     };
 }
 
@@ -172,8 +224,10 @@ async void CreateShopSqlFile(Shop shop)
 
     string[] lines =
     {
-        $"({shop.Id}, {shop.Category}, '{shop.Name}', {(byte) shop.ShopType}, {(shop.RestrictSales ? "1" : "0")}, {(shop.CanRestock ? "1" : "0")}, " +
-        $"1630605560, {(shop.AllowBuyback ? "1" : "0")}),",
+        $"({shop.Id}, {shop.Category}, '{shop.Name}', {(byte) shop.ShopType}, {(shop.HideUnuseable ? "1" : "0")}, {(shop.HideStats ? "1" : "0")}, " +
+        $"{(shop.DisableBuyback ? "1" : "0")}, {(shop.OpenWallet ? "1" : "0")}, {(shop.DisplayNew ? "1" : "0")}, {(shop.RandomizeOrder ? "1" : "0")}, {(shop.CanRestock ? "1" : "0")}, {shop.NextRestock}, {shop.RestockMinInterval}, " +
+        $"{shop.RestockInterval}, {shop.RestockCurrencyType}, {shop.ExcessRestockCurrencyType}, {shop.RestockCost}, {(shop.EnableRestockCostMultiplier ? "1" : "0")}, " +
+        $"{(shop.DisableInstantRestock ? "1" : "0")}, {(shop.PersistantInventory ? "1" : "0")}, {shop.PullCount})," +
         "" // new line
     };
 
@@ -195,12 +249,11 @@ async void CreateShopItemsSqlFile(List<ShopItem> items, int shopId)
         File.WriteAllLines(shopsItemsFilePath, new[]
         {
             "-- SQL File created by PacketToSQL app by tDcc#0568",
-            @"INSERT INTO `shop_items` (`auto_preview_equip`, `category`, `flag`, `guild_trophy`, `item_id`, `item_rank`, `price`,
+            @"INSERT INTO `shop_items` (`auto_preview_equip`, `category`, `label`, `guild_trophy`, `item_id`, `rarity`, `price`,
                             `quantity`, `required_achievement_grade`, `required_achievement_id`,
                             `required_championship_grade`, `required_championship_join_count`, `required_fame_grade`,
                             `required_guild_merchant_level`, `required_guild_merchant_type`, `required_item_id`,
-                            `required_quest_alliance`, `sale_price`, `shop_id`, `stock_count`, `stock_purchased`,
-                            `template_name`, `token_type`)
+                            `required_quest_alliance`, `sale_price`, `shop_id`, `stock_count`, `currency_id`, `currency_type`)
 VALUES"
         });
     }
@@ -214,11 +267,11 @@ VALUES"
 
     foreach (ShopItem shopItem in items)
     {
-        lines.Add($"({(shopItem.AutoPreviewEquip ? "1" : "0")}, '{shopItem.Category}', {(int) shopItem.Flag}, {shopItem.GuildTrophy}, {shopItem.ItemId}, " +
-                  $"{shopItem.ItemRank}, {shopItem.Price}, {shopItem.Quantity}, {shopItem.RequiredAchievementGrade}, {shopItem.RequiredAchievementId}, " +
+        lines.Add($"({(shopItem.AutoPreviewEquip ? "1" : "0")}, '{shopItem.Category}', {(int) shopItem.Label}, {shopItem.GuildTrophy}, {shopItem.ItemId}, " +
+                  $"{shopItem.Rarity}, {shopItem.Price}, {shopItem.Quantity}, {shopItem.RequiredAchievementGrade}, {shopItem.RequiredAchievementId}, " +
                   $"{shopItem.RequiredChampionshipGrade}, {shopItem.RequiredChampionshipJoinCount}, {shopItem.RequiredFameGrade}, " +
                   $"{shopItem.RequiredGuildMerchantLevel}, {shopItem.RequiredGuildMerchantType}, {shopItem.RequiredItemId}, {shopItem.RequiredQuestAlliance}, " +
-                  $"{shopItem.SalePrice}, {shopId}, 0, 0, '{shopItem.TemplateName}', {(int) shopItem.TokenType}),");
+                  $"{shopItem.SalePrice}, {shopId}, {shopItem.StockCount}, '{shopItem.CurrencyId}', {(int) shopItem.CurrencyType}),");
     }
 
     lines.Add("");
@@ -255,7 +308,7 @@ ShopItem ReadItemShop(MaplePacket maplePacket)
     short quantity = maplePacket.ReadShort();
     maplePacket.ReadByte();
     byte flag = maplePacket.ReadByte();
-    string templateName = maplePacket.ReadString();
+    string currencyId = maplePacket.ReadString();
     short requiredQuestAlliance = maplePacket.ReadShort();
     int requiredFameGrade = maplePacket.ReadInt();
     bool autoPreviewEquip = maplePacket.ReadBool();
@@ -264,10 +317,10 @@ ShopItem ReadItemShop(MaplePacket maplePacket)
     {
         AutoPreviewEquip = autoPreviewEquip,
         Category = category,
-        Flag = (ShopItemFlag) flag,
+        Label = (ShopItemLabel) flag,
         GuildTrophy = guildTrophy,
         ItemId = itemId,
-        ItemRank = itemRank,
+        Rarity = itemRank,
         Price = price,
         RequiredAchievementGrade = requiredAchievementGrade,
         RequiredAchievementId = requiredAchievementId,
@@ -281,8 +334,8 @@ ShopItem ReadItemShop(MaplePacket maplePacket)
         SalePrice = salePrice,
         StockCount = stockCount,
         StockPurchased = stockPurchased,
-        TemplateName = templateName,
-        TokenType = (ShopCurrencyType) tokenType,
+        CurrencyId = currencyId,
+        CurrencyType = (ShopCurrencyType) tokenType,
         Quantity = quantity
     };
 }
