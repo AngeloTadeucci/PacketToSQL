@@ -103,6 +103,7 @@ Shop ReadShop(MaplePacket packet)
     packet.ReadInt();
     int id = packet.ReadInt();
     long nextRestock = packet.ReadLong();
+    nextRestock = 1666483200; // change restock of all shops to be at 12 AM GMT
     packet.ReadInt();
     int itemCount = packet.ReadShort();
     int category = packet.ReadInt();
@@ -131,6 +132,7 @@ Shop ReadShop(MaplePacket packet)
     {
         restockCurrencyType = packet.ReadByte();
         excessRestockCurrencyType = packet.ReadByte();
+        packet.ReadInt();
         restockCost = packet.ReadInt();
         enableRestockCostMultiplier = packet.ReadBool();
         totalRestockCount = packet.ReadInt();
